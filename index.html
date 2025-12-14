@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>みんなのBUKATSU球技大会運営</title>
+    <!-- 画像生成用ライブラリ -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        /* --- CSS Variables & Base Styles --- */
+        :root {
+            --primary: #32CD32; /* Lime Green */
+            --primary-dark: #228B22;
+            --accent: #FF8C00; /* Dark Orange */
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --white: #ffffff;
+            --danger: #dc3545;
+            --safe: #28a745;
+            --line-color: #06C755; /* LINE Green */
+            --event-bg: #e3f2fd; /* Light Blue for events */
+        }
+
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding-bottom: 70px; /* Space for bottom nav */
+            overscroll-behavior-y: none; /* Prevent pull-to-refresh interfering with drag */
+        }
+
+        /* --- Layout & Typography --- */
+        header {
+            background: var(--primary);
+            color: var(--white);
+            padding: 1rem;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { margin: 0; font-size: 1.2rem; font-weight: bold; }
+        h2 { font-size: 1.1rem; border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 20px; margin-bottom: 10px; }
+        
+        .container { padding: 15px; max-width: 800px; margin: 0 auto; }
+        .hidden { display: none !important; }
+
+        /* --- Controls --- */
+        input, select, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px; /* Prevents iOS zoom */
+        }
+        
+        /* Label Styles for Inputs */
+        .input-label {
+            font-size: 0.75rem;
+            color: #666;
+            display: block;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:active { opacity: 0.8; }
+        button.accent { background-color: var(--accent); }
+        button.danger { background-color: var(--danger); font-size: 0.8rem; width: auto; }
+        button.secondary { background-color: #6c757d; }
+        
+        /* Share Button */
+        button.share-btn {
+            background-color: var(--line-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        /* --- Navigation --- */
+        nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--white);
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid var(--border-color);
+            z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 10px 0;
+            font-size: 0.75rem;
+            color: #888;
+            cursor: pointer;
+        }
+        .nav-item.active {
+            color: var(--primary-dark);
+            font-weight: bold;
+            border-top: 3px solid var(--primary);
+        }
+        .nav-icon { display: block; font-size: 1.2rem; margin-bottom: 4px; }
+
+        /* --- Tab 1: Announcement --- */
+        .preview-area {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            min-height: 150px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+
+        /* --- Tab 2: Teams --- */
+        .team-editor { display: flex; flex-direction: column; gap: 15px; }
+        .player-pool {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: 80px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .team-box {
+            background: var(--white);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 100px;
+            transition: background-color 0.2s;
+        }
+        .team-box h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--primary-dark); border-bottom: 1px solid #eee; pointer-events: none; }
+        
+        /* Drag & Drop Highlight */
+        .drag-over {
+            background-color: #d1e7dd !important; /* Light green highlight */
+            border-color: var(--primary) !important;
+            border-style: dashed !important;
+        }
+
+        /* Trash Area Style - Enlarged for easier drop */
+        .trash-area {
+            background: #fff0f0;
+            border: 2px dashed var(--danger);
+            color: var(--danger);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 20px;
+            min-height: 80px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .trash-area:active, .trash-area.drag-over {
+            background: var(--danger);
+            color: white;
+            border-style: solid;
+            transform: scale(1.02);
+        }
+
+        .player-chip {
+            background: var(--white);
+            border: 1px solid var(--primary);
+            color: var(--primary-dark);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            cursor: grab;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 3px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .player-chip:active { cursor: grabbing; }
+        
+        .player-chip.selected {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Mobile Drag Avatar */
+        .drag-avatar {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.9;
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: var(--primary);
+            color: white;
+            border: 2px solid white;
+            width: auto;
+            max-width: 200px;
+            white-space: nowrap;
+        }
+
+        /* --- Tab 3: Match & Standings --- */
+        .match-card {
+            background: var(--white);
+            border-left: 5px solid var(--border-color);
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: relative;
+            cursor: pointer;
+        }
+        .match-card.finished { border-left-color: var(--primary); background: #f0fff4; }
+        .match-card.active { border-left-color: var(--accent); }
+        
+        /* Event Card Style */
+        .match-card.event-card {
+            background: var(--event-bg);
+            border-left: 5px solid #2196F3;
+            cursor: default;
+            padding: 8px 10px;
+        }
+        .match-card.event-card .event-title {
+            font-weight: bold;
+            font-size: 1rem;
+            color: #0d47a1;
+        }
+        
+        .match-info { font-size: 0.8rem; color: #666; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .match-teams { display: flex; justify-content: space-between; align-items: center; font-size: 1.1rem; font-weight: bold; }
+        .match-score { background: #eee; padding: 2px 8px; border-radius: 4px; min-width: 50px; text-align: center; }
+        .match-ref { font-size: 0.8rem; color: var(--accent); margin-top: 5px; text-align: right; }
+        
+        table.standings { width: 100%; border-collapse: collapse; background: white; font-size: 0.9rem; }
+        table.standings th, table.standings td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+        table.standings th { background: var(--primary); color: white; }
+
+        /* --- Tab 4: Rules --- */
+        .rule-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 300px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .rule-preset-btn { margin-bottom: 5px; font-size: 0.8rem; width: auto; display: inline-block; margin-right: 5px; }
+        .emphasize-red { color: red; font-weight: bold; }
+        
+        /* Modal General */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 2000;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .score-inputs { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 20px 0; }
+        .score-inputs input { text-align: center; font-size: 1.5rem; }
+
+        /* Image Preview Modal */
+        #generated-image-preview {
+            width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>みんなのBUKATSU球技大会運営</h1>
+</header>
+
+<main id="app">
+    <!-- TAB 1: 案内作成 -->
+    <section id="tab-announce" class="container">
+        <h2>募集案内作成</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <select id="ann-type">
+                <option value="volley">バレーボール</option>
+                <option value="3x3">3x3 バスケ</option>
+            </select>
+            <input type="date" id="ann-date">
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <input type="time" id="ann-time-start" value="19:00">
+            <input type="time" id="ann-time-end" value="21:00">
+        </div>
+        <input type="text" id="ann-place" placeholder="場所（例: 〇〇市民体育館）">
+        <input type="text" id="ann-url" placeholder="申し込みフォームURL">
+        <input type="text" id="ann-deadline" placeholder="締切日（例: 〇/〇 24:00まで）">
+        
+        <button onclick="generateAnnouncement()">案内文を生成</button>
+        
+        <textarea id="ann-result" class="preview-area" readonly></textarea>
+        <button class="accent" onclick="copyAnnouncement()">コピーする</button>
+    </section>
+
+    <!-- TAB 2: チーム編成 -->
+    <section id="tab-teams" class="container hidden">
+        <h2>チーム編成</h2>
+        <div style="margin-bottom: 10px; background: #fff; padding: 10px; border-radius: 8px;">
+            <label style="font-size:0.8rem; font-weight:bold;">1. 名簿登録</label>
+            <textarea id="name-input" rows="3" placeholder="名前を改行区切りで貼り付け"></textarea>
+            <button class="secondary" onclick="loadNames()">名簿読み込み</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <label style="font-size:0.8rem; font-weight:bold;">2. チーム分け</label>
+            <select id="team-count" style="width:auto; margin:0;" onchange="renderTeamBoxes()">
+                <option value="3">3チーム</option>
+                <option value="4" selected>4チーム</option>
+                <option value="5">5チーム</option>
+                <option value="6">6チーム</option>
+                <option value="8">8チーム</option>
+            </select>
+        </div>
+        <p style="font-size:0.8rem; color:#666; margin-top:-5px; margin-bottom:10px;">
+            ※スマホ対応：指でなぞって移動できます<br>
+            <span style="color:var(--danger); font-weight:bold;">※削除：名前をドラッグして「ゴミ箱」へドロップ</span>
+        </p>
+
+        <div class="team-editor">
+            <!-- 未所属プール -->
+            <div id="pool-area" class="player-pool drop-target" 
+                 data-target="pool"
+                 onclick="handleAreaClick('pool')"
+                 ondragover="handleDragOver(event)"
+                 ondragleave="handleDragLeave(event)"
+                 ondrop="handleDrop(event, 'pool')">
+                <span style="width:100%; font-size:0.7rem; color:#888; pointer-events:none;">未所属エリア</span>
+                <!-- Players rendered here -->
+            </div>
+
+            <!-- ゴミ箱エリア -->
+            <div id="trash-area" class="trash-area drop-target"
+                 data-target="trash"
+                 onclick="handleAreaClick('trash')"
+                 ondragover="handleDragOver(event)"
+                 ondragleave="handleDragLeave(event)"
+                 ondrop="handleDrop(event, 'trash')">
+                 🗑️ ここに移動で削除 (タップ or ドロップ)
+            </div>
+            
+            <!-- チームBOX -->
+            <div id="team-container" class="team-grid">
+                <!-- Team boxes rendered here -->
+            </div>
+        </div>
+        <button class="accent" style="margin-top:20px;" onclick="saveTeamsAndNotify()">この編成で決定（試合表へ連携）</button>
+    </section>
+
+    <!-- TAB 3: 試合進行 -->
+    <section id="tab-matches" class="container hidden">
+        <h2>試合進行 & 結果</h2>
+        
+        <div style="background:white; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #ddd;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                    <label class="input-label">競技モード</label>
+                    <select id="match-mode" style="margin-bottom:0;">
+                        <option value="volley">バレー (1面)</option>
+                        <option value="3x3">3x3 (2面)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="input-label">総当たり</label>
+                    <select id="match-rounds" style="margin-bottom:0;">
+                        <option value="1">1周</option>
+                        <option value="2">2周</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                    <label class="input-label" style="color:var(--primary-dark);">集合時間</label>
+                    <input type="time" id="match-start-time" value="19:00" style="margin-bottom:0; font-weight:bold;">
+                </div>
+                <div>
+                    <label class="input-label">試合間隔 (分)</label>
+                    <input type="number" id="match-interval" value="10" placeholder="分" style="margin-bottom:0;">
+                </div>
+            </div>
+            <button class="secondary" style="margin:0;" onclick="generateSchedule()">日程表作成</button>
+        </div>
+
+        <!-- 試合リスト画面 -->
+        <div id="match-view-container">
+            <!-- 画像共有ボタン -->
+            <button class="share-btn" onclick="shareAsImage('match-list')">
+                <span style="font-size:1.2rem;">📤</span> この表を画像で保存・共有
+            </button>
+
+            <!-- 試合リスト -->
+            <div id="match-list"></div>
+
+            <!-- 順位表へ移動ボタン -->
+            <button class="accent" style="margin-top:20px; padding:15px; font-size:1.1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="showStandings()">
+                🏆 試合結果（順位表）へ
+            </button>
+        </div>
+
+        <!-- 順位表画面 (初期非表示) -->
+        <div id="standings-view-container" class="hidden">
+            <button class="secondary" style="margin-bottom:15px;" onclick="showMatchList()">🔙 試合一覧に戻る</button>
+            
+            <button class="share-btn" onclick="shareAsImage('standings-table')">
+                <span style="font-size:1.2rem;">📤</span> 順位表を画像で保存・共有
+            </button>
+
+            <table class="standings" id="standings-table">
+                <thead>
+                    <tr>
+                        <th>順位</th>
+                        <th>チーム</th>
+                        <th>勝</th>
+                        <th>得失点</th>
+                        <th>総得</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div style="text-align:right; margin-top:40px;">
+            <button class="danger" onclick="resetAllData()">データ全消去</button>
+        </div>
+    </section>
+
+    <!-- TAB 4: ルール -->
+    <section id="tab-rules" class="container hidden">
+        <h2>当日ルール周知</h2>
+        <div class="rule-buttons">
+            <button class="rule-preset-btn secondary" onclick="insertRule('strict')">厳守事項挿入</button>
+            <button class="rule-preset-btn secondary" onclick="insertRule('volley')">バレー用挿入</button>
+            <button class="rule-preset-btn secondary" onclick="insertRule('3x3')">3x3用挿入</button>
+        </div>
+        <textarea id="rule-text" class="rule-content" placeholder="ここにルールを入力してください。自動保存されます。" oninput="saveRules()"></textarea>
+    </section>
+</main>
+
+<nav>
+    <div class="nav-item active" onclick="switchTab('tab-announce', this)">
+        <span class="nav-icon">📢</span>案内
+    </div>
+    <div class="nav-item" onclick="switchTab('tab-teams', this)">
+        <span class="nav-icon">👥</span>チーム
+    </div>
+    <div class="nav-item" onclick="switchTab('tab-matches', this)">
+        <span class="nav-icon">🏆</span>試合
+    </div>
+    <div class="nav-item" onclick="switchTab('tab-rules', this)">
+        <span class="nav-icon">📜</span>ルール
+    </div>
+</nav>
+
+<!-- Score Modal -->
+<div id="score-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h3 id="modal-title" style="text-align:center;">スコア入力</h3>
+        <div class="score-inputs">
+            <div style="text-align:center;">
+                <div id="modal-team-a-name" style="font-weight:bold; margin-bottom:5px;">A</div>
+                <input type="number" id="score-a" inputmode="numeric">
+            </div>
+            <div style="font-weight:bold; font-size:1.5rem;">-</div>
+            <div style="text-align:center;">
+                <div id="modal-team-b-name" style="font-weight:bold; margin-bottom:5px;">B</div>
+                <input type="number" id="score-b" inputmode="numeric">
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="secondary" onclick="closeModal()">キャンセル</button>
+            <button class="primary" onclick="saveScore()">決定</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align:center;">
+        <h3>⚠️ 削除確認</h3>
+        <p>「<span id="delete-target-name" style="font-weight:bold;"></span>」を<br>本当に削除しますか？</p>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
+            <button class="secondary" onclick="closeDeleteModal()">キャンセル</button>
+            <button class="danger" onclick="executeDelete()">はい、削除します</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Confirmation Modal -->
+<div id="reset-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align:center;">
+        <h3>⚠️ データ全消去</h3>
+        <p>全てのデータを消去しますか？<br><span style="color:var(--danger); font-weight:bold;">復元することはできません。</span></p>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
+            <button class="secondary" onclick="closeResetModal()">キャンセル</button>
+            <button class="danger" onclick="executeReset()">全消去する</button>
+        </div>
+    </div>
+</div>
+
+<!-- Image Share Modal (NEW) -->
+<div id="image-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align:center; max-width:90%;">
+        <h3>📤 画像保存・共有</h3>
+        <p style="font-size:0.9rem; color:#666; margin-bottom:10px;">
+            下の画像を<span style="color:var(--primary-dark); font-weight:bold;">長押し</span>して保存するか、<br>共有メニューからLINE等へ送ってください。
+        </p>
+        <div id="image-preview-container" style="margin-bottom:15px; border:1px solid #eee; padding:5px; max-height:50vh; overflow:auto;">
+            <!-- Generated Image will be inserted here -->
+        </div>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="primary" onclick="closeImageModal()">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- State Management ---
+    const APP_KEY = 'bukatsu_app_v1';
+    let state = {
+        teams: {}, // { teamId: [playerName, ...] }
+        pool: [],  // [playerName, ...]
+        matches: [], // [{id, time, t1, t2, s1, s2, court, ref, type, label}]
+        rules: '',
+        activeTab: 'tab-announce',
+        matchMode: 'volley'
+    };
+
+    let selectedPlayer = null; // For moving players (Tap logic)
+    let currentMatchId = null; // For modal
+
+    // --- Mobile Drag & Drop Variables ---
+    let dragAvatar = null;
+    let touchDragSource = null; // { name, from, index }
+    let currentDropTarget = null;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouchDragging = false;
+    
+    // --- Delete Modal Variables ---
+    let pendingDelete = null; // { name, from, index }
+
+    // --- Initialization ---
+    window.addEventListener('load', () => {
+        loadData();
+        renderTeamBoxes();
+        renderPlayers();
+        renderMatches();
+        document.getElementById('rule-text').value = state.rules;
+        
+        // Tab Restoration
+        if(state.activeTab) {
+            const el = document.querySelector(`[onclick="switchTab('${state.activeTab}', this)"]`);
+            if(el) switchTab(state.activeTab, el);
+        }
+    });
+
+    function saveData() {
+        localStorage.setItem(APP_KEY, JSON.stringify(state));
+    }
+
+    function loadData() {
+        const stored = localStorage.getItem(APP_KEY);
+        if (stored) {
+            state = JSON.parse(stored);
+        } else {
+            // Default Rules
+            state.rules = "【厳守事項】\n・審判への文句は即退場！\n・アクセ・ガム禁止（発見次第即退場）\n・ゴミは持ち帰ること\n\n【ルール】\n怪我のないように楽しくやりましょう。";
+        }
+    }
+
+    // --- Reset Data Logic ---
+    function resetAllData() {
+        document.getElementById('reset-modal').classList.remove('hidden');
+    }
+
+    function closeResetModal() {
+        document.getElementById('reset-modal').classList.add('hidden');
+    }
+
+    function executeReset() {
+        localStorage.removeItem(APP_KEY);
+        location.reload();
+    }
+
+    // --- View Switching Logic (Matches <-> Standings) ---
+    function showStandings() {
+        document.getElementById('match-view-container').classList.add('hidden');
+        document.getElementById('standings-view-container').classList.remove('hidden');
+        renderStandings();
+        window.scrollTo(0, 0); // Scroll to top
+    }
+
+    function showMatchList() {
+        document.getElementById('standings-view-container').classList.add('hidden');
+        document.getElementById('match-view-container').classList.remove('hidden');
+        window.scrollTo(0, 0);
+    }
+
+    // --- Share as Image Logic (Simplified) ---
+    async function shareAsImage(targetId) {
+        const targetElement = document.getElementById(targetId);
+
+        if (!targetElement || (targetElement.innerHTML.trim() === "" && state.matches.length === 0)) {
+            alert("保存するデータがありません。");
+            return;
+        }
+
+        const btns = document.querySelectorAll('.share-btn');
+        // Loading indication
+        btns.forEach(b => b.innerHTML = '⏳ 生成中...');
+
+        try {
+            const canvas = await html2canvas(targetElement, {
+                backgroundColor: "#ffffff",
+                scale: 2 // High resolution
+            });
+
+            const imgData = canvas.toDataURL("image/png");
+            
+            // Show Modal with Image
+            const img = document.createElement('img');
+            img.src = imgData;
+            img.id = 'generated-image-preview';
+            
+            const container = document.getElementById('image-preview-container');
+            container.innerHTML = ''; // Clear previous
+            container.appendChild(img);
+            
+            document.getElementById('image-modal').classList.remove('hidden');
+
+        } catch (e) {
+            alert('画像生成に失敗しました。');
+            console.error(e);
+        } finally {
+            // Restore buttons
+            btns.forEach(b => b.innerHTML = '<span style="font-size:1.2rem;">📤</span> 画像で保存・共有');
+        }
+    }
+
+    function closeImageModal() {
+        document.getElementById('image-modal').classList.add('hidden');
+    }
+
+    // --- Tab Navigation ---
+    window.switchTab = (tabId, navEl) => {
+        document.querySelectorAll('section').forEach(el => el.classList.add('hidden'));
+        document.getElementById(tabId).classList.remove('hidden');
+        
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        if(navEl) navEl.classList.add('active');
+
+        state.activeTab = tabId;
+        saveData();
+    };
+
+    // --- TAB 1: Announcement ---
+    window.generateAnnouncement = () => {
+        const type = document.getElementById('ann-type').value;
+        const dateVal = document.getElementById('ann-date').value; // YYYY-MM-DD
+        const start = document.getElementById('ann-time-start').value;
+        const end = document.getElementById('ann-time-end').value;
+        const place = document.getElementById('ann-place').value;
+        const url = document.getElementById('ann-url').value;
+        const deadline = document.getElementById('ann-deadline').value;
+
+        // Date formatting
+        let dateStr = '未定';
+        let deadlineDateStr = deadline || '定員まで';
+
+        if(dateVal) {
+            const d = new Date(dateVal);
+            const y = d.getFullYear();
+            const m = d.getMonth() + 1;
+            const dt = d.getDate();
+            const day = ['日','月','火','水','木','金','土'][d.getDay()];
+            dateStr = `${y}年${m}月${dt}日(${day})`;
+        }
+
+        let text = '';
+        if (type === 'volley') {
+            text = `＜みんなの球技大会🏐【バレー】＞
+
+『みんなのBUKATSU🍀』が主催する、バレーボール大会です‼️
+バレー好き🏐はもちろん、スポーツを通じて友達を作りたい方、久々に身体を動かしたい方、みんなでワイワイ楽しみたい方のご参加をお待ちしています！
+
+【👨‍👩‍👧こんな方オススメ🍀】
+○久々にバレーがしたい方
+○初心者・未経験だけど挑戦してみたい方
+○スポーツを通じて友達を作りたい方
+○みんなでワイワイ楽しみたい方
+
+■日時
+${dateStr}
+${start} ～ ${end}
+
+■場所
+${place || '未定'}
+
+■参加費
+・会員: 2,000円/人
+・非会員: 3,000円/人
+（内訳：大会参加費2,000円＋体験参加費1,000円）
+
+■大会形式・景品
+※当日運営にてチーム分けを行います（個人参加メインです）
+※フォーム内で参加レベル（初心者〜経験者まで）を選択いただきます。チーム分けの参考にしますので、ご協力をお願いします。
+※参加賞あり！
+※優勝チームには3,500円相当のMB Tシャツを人数分プレゼント！
+
+【参加申込フォーム】
+${url || 'URL未定'}
+
+※締切：${deadlineDateStr}
+
+---
+
+【基本ルール】
+https://youtu.be/Lv2k2y2W6Yg?si=95TuErFchL2QpeCf
+※細かいルールに関しては、みんなのバレー通常開催に沿って行います。
+
+【ローカルルール】
+＜１周目＞
+・必ず3回触ってから相手に返す
+・セッター固定あり
+・チーム内のレベル４までの誰か１人得点2倍
+
+＜２周目＞
+・セッター固定なし
+・必ずローテーション
+
+＜１周、２周共通＞
+・チーム総当たり(2周)
+・交代はいつのタイミングでもOK
+・21点マッチ(デュースなし)
+・参加チーム数によってデュースあり
+・休憩チームから審判、線審、得点板
+・順位は勝ちの多いチームから決定し、
+　同着の場合得失点差にて決定とする。
+
+【重要：厳守事項】
+・審判への文句は、即退場！
+・アクセサリーや、ガムを噛みながらの
+　プレーは禁止とします。
+　※発見した際は、即退場
+
+※ルールは事前に確認お願い致します。`;
+        } else if (type === '3x3') {
+             text = `＜みんなの球技大会🏀【3×3】＞
+
+『みんなのBUKATSU🍀』が主催する、3x3バスケットボール大会です‼️
+バスケ好き🏀はもちろん、チームで腕試ししたい方、個人で気軽に参加したい方、みんなでワイワイ楽しみたい方のご参加をお待ちしています！
+
+【👨‍👩‍👧こんな方オススメ🍀】
+○3x3が好きな方
+○チームで大会に出てみたい方
+○個人だけどゲーム（試合）がしたい方
+○スポーツを通じて友達を作りたい方
+○バスケ仲間がほしい方
+
+■日時
+${dateStr}
+${start} ～ ${end}
+
+■場所
+${place || '未定'}
+
+■参加費
+・会員: 2,000円/人
+・非会員: 3,000円/人
+（内訳：大会参加費2,000円＋体験参加費1,000円）
+※参加費は当日、お一人様ずつ（またはチーム代表者がまとめて）お支払いください。
+
+■大会形式・景品
+※【チーム参加】または【個人参加】を選択できます。
+※チーム参加の場合、先着４チームまでとします。
+※チーム人数は最低3人（上限なし）です。
+※個人参加の場合は当日運営にてチーム分けを行います。
+※参加賞あり！
+※優勝チームには3,500円相当のMB Tシャツを人数分プレゼント！
+
+【参加申込フォーム】
+${url || 'URL未定'}
+
+※締切：${deadlineDateStr}
+
+---
+
+【基本ルール】
+https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
+
+【ローカルルール】
+●6チーム総当たり（参加チーム数により変動します）
+●7分または17点先取
+●タイマーは全て流し
+●チームファール5つからフリースロー
+●火曜の経験者バスケに参加していない男性は得点2倍、女性は3倍
+●順位は勝ちの多いチームから決定し、
+　同着の場合得失点差にて決定とする。
+
+【重要：厳守事項】
+●審判への文句は、即退場！
+●アクセサリーや、ガムを噛みながらの
+　プレーは禁止とします。
+　※発見した際は、即退場
+
+※ルールは事前に確認お願い致します。`;
+        }
+
+        document.getElementById('ann-result').value = text;
+    };
+
+    window.copyAnnouncement = () => {
+        const ta = document.getElementById('ann-result');
+        ta.select();
+        document.execCommand('copy');
+        alert('コピーしました！');
+    };
+
+    // --- TAB 2: Team Building ---
+    window.loadNames = () => {
+        const input = document.getElementById('name-input').value;
+        if(!input.trim()) return;
+        
+        const names = input.split(/\n/).map(n => n.trim()).filter(n => n);
+        state.pool = [...state.pool, ...names];
+        document.getElementById('name-input').value = '';
+        saveData();
+        renderPlayers();
+    };
+
+    // Render players in pool
+    function renderPlayers() {
+        const poolDiv = document.getElementById('pool-area');
+        poolDiv.innerHTML = '<span style="width:100%; font-size:0.7rem; color:#888; pointer-events:none;">未所属エリア</span>';
+        
+        state.pool.forEach((p, idx) => {
+            poolDiv.appendChild(createChip(p, 'pool', idx));
+        });
+
+        // Also refresh teams to ensure consistency
+        const count = parseInt(document.getElementById('team-count').value);
+        for(let i=1; i<=count; i++) {
+            const box = document.getElementById(`team-box-${i}`);
+            if(box) {
+                // Keep header, clear content
+                const header = box.querySelector('h3');
+                box.innerHTML = '';
+                box.appendChild(header);
+                
+                const teamKey = `Team${i}`;
+                // Add drop target attributes
+                box.classList.add('drop-target');
+                box.dataset.target = teamKey;
+
+                if(state.teams[teamKey]) {
+                    state.teams[teamKey].forEach((p, idx) => {
+                        box.appendChild(createChip(p, teamKey, idx));
+                    });
+                }
+            }
+        }
+    }
+
+    // Create Chip Element
+    function createChip(name, location, index) {
+        const span = document.createElement('span');
+        span.className = 'player-chip';
+        span.draggable = true; // Enable Drag (PC)
+        
+        if(selectedPlayer && selectedPlayer.name === name && selectedPlayer.from === location && selectedPlayer.idx === index) {
+            span.classList.add('selected');
+        }
+
+        // Tap Selection Logic
+        span.onclick = (e) => {
+            e.stopPropagation();
+            if(selectedPlayer && selectedPlayer.name === name && selectedPlayer.idx === index) {
+                selectedPlayer = null; // Deselect
+            } else {
+                selectedPlayer = { name, from: location, idx: index };
+            }
+            renderPlayers();
+        };
+
+        // PC Drag Events
+        span.ondragstart = (e) => handleDragStart(e, name, location, index);
+        span.ondragend = handleDragEnd;
+
+        // Mobile Touch Events
+        span.ontouchstart = (e) => handleTouchStart(e, name, location, index);
+        span.ontouchmove = handleTouchMove;
+        span.ontouchend = handleTouchEnd;
+
+        // Name Text
+        const text = document.createElement('span');
+        text.textContent = name;
+        span.appendChild(text);
+
+        return span;
+    }
+
+    // --- PC Drag and Drop Logic ---
+    function handleDragStart(e, name, from, index) {
+        e.dataTransfer.setData('text/plain', JSON.stringify({name, from, index}));
+        e.dataTransfer.effectAllowed = 'move';
+        e.target.style.opacity = '0.5';
+    }
+
+    function handleDragEnd(e) {
+        e.target.style.opacity = '1';
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.currentTarget.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+        e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handleDrop(e, targetArea) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        const data = e.dataTransfer.getData('text/plain');
+        if(!data) return;
+        
+        try {
+            const {name, from, index} = JSON.parse(data);
+            movePlayer(name, from, targetArea, index);
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
+    // --- Mobile Touch Drag Logic (New) ---
+    function handleTouchStart(e, name, from, index) {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchDragSource = { name, from, index };
+        isTouchDragging = false;
+        // Do not preventDefault here to allow tap/click
+    }
+
+    function handleTouchMove(e) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        
+        // Start dragging after small movement
+        if (!isTouchDragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+            isTouchDragging = true;
+            // Create ghost avatar
+            if(dragAvatar) document.body.removeChild(dragAvatar);
+            dragAvatar = document.createElement('div');
+            dragAvatar.className = 'player-chip drag-avatar';
+            dragAvatar.innerText = touchDragSource.name;
+            document.body.appendChild(dragAvatar);
+        }
+
+        if (isTouchDragging) {
+            e.preventDefault(); // Prevent scrolling
+            
+            if(dragAvatar) {
+                // Move avatar
+                dragAvatar.style.left = `${touch.clientX - 20}px`;
+                dragAvatar.style.top = `${touch.clientY - 20}px`;
+
+                // Find drop target
+                dragAvatar.style.display = 'none'; // Hide to check element below
+                const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+                dragAvatar.style.display = 'block';
+
+                if(elem) {
+                    const targetEl = elem.closest('.drop-target');
+                    // Remove old highlights
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                    
+                    if(targetEl) {
+                        targetEl.classList.add('drag-over');
+                        currentDropTarget = targetEl;
+                    } else {
+                        currentDropTarget = null;
+                    }
+                }
+            }
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (isTouchDragging) {
+            e.preventDefault(); // Prevent click
+            
+            if(currentDropTarget) {
+                const targetArea = currentDropTarget.dataset.target;
+                if(targetArea) {
+                    movePlayer(touchDragSource.name, touchDragSource.from, targetArea, touchDragSource.index);
+                }
+            }
+            
+            // Cleanup
+            if(dragAvatar && dragAvatar.parentNode) {
+                dragAvatar.parentNode.removeChild(dragAvatar);
+            }
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            dragAvatar = null;
+            currentDropTarget = null;
+        }
+        isTouchDragging = false;
+    }
+
+    // --- Delete Modal Logic ---
+    function confirmDelete(name, from, index) {
+        pendingDelete = { name, from, index };
+        document.getElementById('delete-target-name').textContent = name;
+        document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        pendingDelete = null;
+        document.getElementById('delete-modal').classList.add('hidden');
+    }
+
+    function executeDelete() {
+        if (pendingDelete) {
+            const { name, from, index } = pendingDelete;
+            // Remove from source using INDEX
+            if(from === 'pool') {
+                state.pool.splice(index, 1);
+            } else {
+                if(state.teams[from]) {
+                    state.teams[from].splice(index, 1);
+                }
+            }
+            selectedPlayer = null;
+            saveData();
+            renderPlayers();
+        }
+        closeDeleteModal();
+    }
+
+    // Unified Move Logic
+    function movePlayer(name, from, targetArea, index) {
+        // Special case: Trash - Show Modal
+        if (targetArea === 'trash') {
+            confirmDelete(name, from, index);
+            return;
+        }
+
+        if(from === targetArea) return; // No move needed
+
+        // Remove from source using INDEX
+        if(from === 'pool') {
+            state.pool.splice(index, 1);
+        } else {
+            if(state.teams[from]) {
+                state.teams[from].splice(index, 1);
+            }
+        }
+
+        // Add to destination
+        if(targetArea === 'pool') {
+            state.pool.push(name);
+        } else {
+            if(!state.teams[targetArea]) state.teams[targetArea] = [];
+            state.teams[targetArea].push(name);
+        }
+
+        selectedPlayer = null; // Clear selection if any
+        saveData();
+        renderPlayers();
+    }
+
+    window.renderTeamBoxes = () => {
+        const container = document.getElementById('team-container');
+        const count = parseInt(document.getElementById('team-count').value);
+        container.innerHTML = '';
+
+        for(let i=1; i<=count; i++) {
+            const teamKey = `Team${i}`;
+            const div = document.createElement('div');
+            div.className = 'team-box drop-target';
+            div.dataset.target = teamKey; // For mobile drag
+            div.id = `team-box-${i}`;
+            div.innerHTML = `<h3>Team ${i}</h3>`;
+            
+            // Tap Interaction
+            div.onclick = () => handleAreaClick(teamKey);
+
+            // Drag & Drop Interaction
+            div.ondragover = (e) => handleDragOver(e);
+            div.ondragleave = (e) => handleDragLeave(e);
+            div.ondrop = (e) => handleDrop(e, teamKey);
+
+            container.appendChild(div);
+        }
+        renderPlayers();
+    };
+
+    // Tap Area Logic
+    window.handleAreaClick = (targetArea) => {
+        if(!selectedPlayer) return;
+        movePlayer(selectedPlayer.name, selectedPlayer.from, targetArea, selectedPlayer.idx);
+    };
+
+    window.saveTeamsAndNotify = () => {
+        saveData();
+        alert('チーム編成を保存しました。\n「試合」タブで日程表を作成してください。');
+        // Switch to match tab
+        const matchTabBtn = document.querySelectorAll('.nav-item')[2];
+        switchTab('tab-matches', matchTabBtn);
+    };
+
+
+    // --- TAB 3: Match Schedule ---
+    
+    // Helper: Round Robin Generator
+    function getRoundRobinPairs(teamKeys) {
+        const pairs = [];
+        const n = teamKeys.length;
+        if (n < 2) return [];
+        
+        // Simple algorithm for all vs all
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                pairs.push([teamKeys[i], teamKeys[j]]);
+            }
+        }
+        return pairs.sort(() => Math.random() - 0.5);
+    }
+
+    window.generateSchedule = () => {
+        const count = parseInt(document.getElementById('team-count').value);
+        const mode = document.getElementById('match-mode').value;
+        const startStr = document.getElementById('match-start-time').value;
+        const interval = parseInt(document.getElementById('match-interval').value);
+        const rounds = parseInt(document.getElementById('match-rounds').value) || 1;
+        
+        const teamKeys = [];
+        for(let i=1; i<=count; i++) teamKeys.push(`Team${i}`);
+
+        state.matches = [];
+        state.matchMode = mode;
+
+        let collectionTime = new Date(`2000-01-01T${startStr}:00`);
+
+        // Helper to format time
+        const formatTime = (date) => date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+        // 1. 集合 (入力された時間そのもの)
+        // Label変更: 体育館集合・準備 -> 体育館集合、準備、アップ
+        state.matches.push({ type: 'event', time: formatTime(collectionTime), label: '体育館集合、準備、アップ', id: 'ev-1' });
+
+        // 2. 開会式 (集合から30分後)
+        let openTime = new Date(collectionTime.getTime() + 30 * 60000);
+        state.matches.push({ type: 'event', time: formatTime(openTime), label: '開会式、ルール説明', id: 'ev-2' });
+
+        // 第1試合開始 (開会式から10分後 => 集合から40分後)
+        let currentTime = new Date(collectionTime.getTime() + 40 * 60000);
+
+        // Generate Pairs
+        let pairs = [];
+        const loopCount = (mode === 'volley') ? rounds : 1; 
+
+        for(let r=0; r<loopCount; r++) {
+             let p = getRoundRobinPairs(teamKeys);
+             if (r % 2 === 1) {
+                 p = p.map(pair => [pair[1], pair[0]]);
+             }
+             pairs = pairs.concat(p);
+        }
+        
+        // Scheduling Logic
+        if(mode === 'volley') {
+            // 1 Court: Sequential
+            pairs.forEach((pair, idx) => {
+                const timeStr = formatTime(currentTime);
+                const playing = pair;
+                const resting = teamKeys.filter(t => !playing.includes(t));
+                const ref = resting.length > 0 ? resting[idx % resting.length] : '相互';
+
+                state.matches.push({
+                    id: idx + 1,
+                    time: timeStr,
+                    t1: pair[0],
+                    t2: pair[1],
+                    s1: null,
+                    s2: null,
+                    court: 'Main',
+                    ref: ref,
+                    type: 'match'
+                });
+                
+                currentTime.setMinutes(currentTime.getMinutes() + interval);
+            });
+        } else {
+            // 3x3: 2 Courts Parallel
+            const pairs3x3 = getRoundRobinPairs(teamKeys); 
+            
+            for(let i=0; i<pairs3x3.length; i+=2) {
+                const timeStr = formatTime(currentTime);
+                const pair1 = pairs3x3[i];
+                const pair2 = pairs3x3[i+1] || null;
+
+                const playing = [...pair1, ...(pair2 || [])];
+                const resting = teamKeys.filter(t => !playing.includes(t));
+                
+                const ref1 = resting.length > 0 ? resting[0] : '相互';
+                
+                state.matches.push({
+                    id: i + 1,
+                    time: timeStr,
+                    t1: pair1[0],
+                    t2: pair1[1],
+                    s1: null, s2: null,
+                    court: 'A',
+                    ref: ref1,
+                    type: 'match'
+                });
+
+                if(pair2) {
+                    const ref2 = resting.length > 1 ? resting[1] : (resting.length > 0 ? resting[0] : '相互');
+                    state.matches.push({
+                        id: i + 2,
+                        time: timeStr,
+                        t1: pair2[0],
+                        t2: pair2[1],
+                        s1: null, s2: null,
+                        court: 'B',
+                        ref: ref2,
+                        type: 'match'
+                    });
+                }
+
+                currentTime.setMinutes(currentTime.getMinutes() + interval);
+            }
+        }
+
+        // Add Post-Event Items
+        // 3. 閉会式 (Immediately after last match)
+        state.matches.push({ type: 'event', time: formatTime(currentTime), label: '閉会式、結果発表', id: 'ev-3' });
+
+        // 4. 片付け (10 mins after)
+        currentTime.setMinutes(currentTime.getMinutes() + 10);
+        state.matches.push({ type: 'event', time: formatTime(currentTime), label: '片付け', id: 'ev-4' });
+
+        saveData();
+        renderMatches();
+        renderStandings();
+        showMatchList(); 
+    };
+
+    window.renderMatches = () => {
+        const list = document.getElementById('match-list');
+        list.innerHTML = '';
+
+        if(state.matches.length === 0) {
+            list.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">日程表がありません。<br>上部ボタンから作成してください。</div>';
+            return;
+        }
+
+        state.matches.forEach(m => {
+            const div = document.createElement('div');
+            
+            if (m.type === 'event') {
+                // Event Row
+                div.className = 'match-card event-card';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.9rem; color:#555;">${m.time}</span>
+                        <span class="event-title">${m.label}</span>
+                    </div>
+                `;
+            } else {
+                // Match Row
+                const isFinished = m.s1 !== null && m.s2 !== null;
+                div.className = `match-card ${isFinished ? 'finished' : ''}`;
+                div.onclick = () => openScoreModal(m.id);
+
+                div.innerHTML = `
+                    <div class="match-info">
+                        <span>No.${m.id} ${m.time}</span>
+                        <span>コート: ${m.court}</span>
+                    </div>
+                    <div class="match-teams">
+                        <span>${m.t1}</span>
+                        <span class="match-score">${m.s1 !== null ? m.s1 : '-'} - ${m.s2 !== null ? m.s2 : '-'}</span>
+                        <span>${m.t2}</span>
+                    </div>
+                    <div class="match-ref">審判/TO: ${m.ref}</div>
+                `;
+            }
+            list.appendChild(div);
+        });
+    };
+
+    // Score Modal
+    window.openScoreModal = (matchId) => {
+        const match = state.matches.find(m => m.id === matchId);
+        // Ignore event rows
+        if(!match || match.type === 'event') return;
+        
+        currentMatchId = matchId;
+        document.getElementById('modal-title').innerText = `試合 No.${match.id} 結果入力`;
+        document.getElementById('modal-team-a-name').innerText = match.t1;
+        document.getElementById('modal-team-b-name').innerText = match.t2;
+        document.getElementById('score-a').value = match.s1;
+        document.getElementById('score-b').value = match.s2;
+        
+        document.getElementById('score-modal').classList.remove('hidden');
+    };
+
+    window.closeModal = () => {
+        document.getElementById('score-modal').classList.add('hidden');
+        currentMatchId = null;
+    };
+
+    window.saveScore = () => {
+        const s1 = document.getElementById('score-a').value;
+        const s2 = document.getElementById('score-b').value;
+        
+        if(s1 === '' || s2 === '') {
+            alert('スコアを入力してください');
+            return;
+        }
+
+        const match = state.matches.find(m => m.id === currentMatchId);
+        match.s1 = parseInt(s1);
+        match.s2 = parseInt(s2);
+        
+        saveData();
+        renderMatches();
+        renderStandings(); // Update standings immediately
+        closeModal();
+    };
+
+    // Standings Logic
+    window.renderStandings = () => {
+        const tbody = document.querySelector('#standings-table tbody');
+        tbody.innerHTML = '';
+        
+        // Init Stats
+        const stats = {};
+        const count = parseInt(document.getElementById('team-count').value) || 0;
+        let teams = [];
+        if(count > 0) {
+            for(let i=1; i<=count; i++) teams.push(`Team${i}`);
+        } else {
+            // Fallback
+            state.matches.forEach(m => {
+                if (m.type === 'match') {
+                    if(!teams.includes(m.t1)) teams.push(m.t1);
+                    if(!teams.includes(m.t2)) teams.push(m.t2);
+                }
+            });
+        }
+
+        teams.forEach(t => {
+            stats[t] = { name: t, wins: 0, points: 0, diff: 0, games: 0 };
+        });
+
+        // Calc
+        state.matches.forEach(m => {
+            if(m.type === 'match' && m.s1 !== null && m.s2 !== null) {
+                const p1 = stats[m.t1];
+                const p2 = stats[m.t2];
+                if(p1 && p2) {
+                    p1.games++; p2.games++;
+                    p1.points += m.s1; p2.points += m.s2;
+                    p1.diff += (m.s1 - m.s2);
+                    p2.diff += (m.s2 - m.s1);
+
+                    if(m.s1 > m.s2) p1.wins++;
+                    else if(m.s2 > m.s1) p2.wins++;
+                }
+            }
+        });
+
+        // Sort: 勝ち数 > 得失点差 > 総得点
+        const sorted = Object.values(stats).sort((a, b) => {
+            if(b.wins !== a.wins) return b.wins - a.wins;
+            if(b.diff !== a.diff) return b.diff - a.diff;
+            return b.points - a.points;
+        });
+
+        sorted.forEach((t, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idx + 1}</td>
+                <td style="font-weight:bold;">${t.name}</td>
+                <td>${t.wins}</td>
+                <td>${t.diff > 0 ? '+'+t.diff : t.diff}</td>
+                <td>${t.points}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    };
+
+    // --- TAB 4: Rules ---
+    window.insertRule = (type) => {
+        const ta = document.getElementById('rule-text');
+        let text = "";
+        
+        if(type === 'strict') {
+            text = "【厳守事項】\n・審判へのクレームは即退場処分とします。\n・施設内での飲酒、喫煙は禁止です。\n・装飾品（ピアス等）は外してください。";
+        } else if(type === 'volley') {
+            text = "【バレーボール独自ルール】\n・予選1周目: 女性2点/レベル4以下得点2倍\n・予選2周目: セッター固定なし/ローテーション必須\n・ネットタッチは厳格に取ります。";
+        } else if(type === '3x3') {
+            text = "【3x3 独自ルール】\n・試合時間: 7分流し or 21点先取\n・経験者チームの女性得点は+1点（シュート3点/4点）\n・チームファール5回目からフリースロー。\n・攻守交代はボールチェック後即スタート。";
+        }
+
+        const currentPos = ta.selectionStart;
+        const val = ta.value;
+        ta.value = val.slice(0, currentPos) + text + val.slice(currentPos);
+        saveRules();
+    };
+
+    window.saveRules = () => {
+        state.rules = document.getElementById('rule-text').value;
+        saveData();
+    };
+
+</script>
+
+</body>
+</html>
