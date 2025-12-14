@@ -156,7 +156,22 @@
             min-height: 100px;
             transition: background-color 0.2s;
         }
-        .team-box h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--primary-dark); border-bottom: 1px solid #eee; pointer-events: none; }
+        .team-box h3 { 
+            margin: 0 0 10px 0; 
+            font-size: 1rem; 
+            color: var(--primary-dark); 
+            border-bottom: 1px solid #eee; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .edit-icon {
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #eee;
+        }
         
         /* Drag & Drop Highlight */
         .drag-over {
@@ -537,7 +552,19 @@
     </div>
 </div>
 
-<!-- Image Share Modal (NEW) -->
+<!-- Team Name Edit Modal (NEW) -->
+<div id="name-edit-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align:center;">
+        <h3>チーム名変更</h3>
+        <input type="text" id="edit-team-name-input" style="font-size:1.2rem; text-align:center;">
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
+            <button class="secondary" onclick="closeNameEditModal()">キャンセル</button>
+            <button class="primary" onclick="saveTeamName()">変更する</button>
+        </div>
+    </div>
+</div>
+
+<!-- Image Share Modal -->
 <div id="image-modal" class="modal-overlay hidden">
     <div class="modal-content" style="text-align:center; max-width:90%;">
         <h3>📤 画像保存・共有</h3>
@@ -562,7 +589,8 @@
         matches: [], // [{id, time, t1, t2, s1, s2, court, ref, type, label}]
         rules: '',
         activeTab: 'tab-announce',
-        matchMode: 'volley'
+        matchMode: 'volley',
+        teamNames: {} // { "Team1": "チームA", ... }
     };
 
     let selectedPlayer = null; // For moving players (Tap logic)
@@ -578,6 +606,9 @@
     
     // --- Delete Modal Variables ---
     let pendingDelete = null; // { name, from, index }
+
+    // --- Team Name Edit Variables ---
+    let editingTeamKey = null;
 
     // --- Initialization ---
     window.addEventListener('load', () => {
@@ -602,10 +633,17 @@
         const stored = localStorage.getItem(APP_KEY);
         if (stored) {
             state = JSON.parse(stored);
+            // Ensure teamNames exists
+            if (!state.teamNames) state.teamNames = {};
         } else {
             // Default Rules
             state.rules = "【厳守事項】\n・審判への文句は即退場！\n・アクセ・ガム禁止（発見次第即退場）\n・ゴミは持ち帰ること\n\n【ルール】\n怪我のないように楽しくやりましょう。";
         }
+    }
+
+    // --- Helper: Get Display Name ---
+    function getTeamName(key) {
+        return state.teamNames[key] || key;
     }
 
     // --- Reset Data Logic ---
@@ -620,6 +658,36 @@
     function executeReset() {
         localStorage.removeItem(APP_KEY);
         location.reload();
+    }
+
+    // --- Team Name Edit Logic ---
+    function openNameEditModal(teamKey) {
+        editingTeamKey = teamKey;
+        const currentName = state.teamNames[teamKey] || teamKey;
+        document.getElementById('edit-team-name-input').value = currentName;
+        document.getElementById('name-edit-modal').classList.remove('hidden');
+        // Auto focus
+        setTimeout(() => document.getElementById('edit-team-name-input').focus(), 100);
+    }
+
+    function closeNameEditModal() {
+        document.getElementById('name-edit-modal').classList.add('hidden');
+        editingTeamKey = null;
+    }
+
+    function saveTeamName() {
+        if (!editingTeamKey) return;
+        
+        const newName = document.getElementById('edit-team-name-input').value.trim();
+        if (newName) {
+            state.teamNames[editingTeamKey] = newName;
+            saveData();
+            renderTeamBoxes();
+            // Also refresh other views just in case
+            renderMatches(); 
+            renderStandings();
+        }
+        closeNameEditModal();
     }
 
     // --- View Switching Logic (Matches <-> Standings) ---
@@ -884,14 +952,36 @@ https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
             if(box) {
                 // Keep header, clear content
                 const header = box.querySelector('h3');
-                box.innerHTML = '';
-                box.appendChild(header);
-                
-                const teamKey = `Team${i}`;
+                box.innerHTML = ''; // Clear only content, keep container
+                // Rebuild header
+                if (header) {
+                    box.appendChild(header);
+                    
+                    const teamKey = `Team${i}`;
+                    // Update header text based on current name
+                    // Toggle edit on header click (text or icon)
+                    header.style.cursor = 'pointer'; // Make it look clickable
+                    header.innerHTML = `<span>${getTeamName(teamKey)}</span> <span class="edit-icon">✏️</span>`;
+                    
+                    header.onclick = (e) => { 
+                        e.stopPropagation(); // Prevent triggering team selection/move
+                        openNameEditModal(teamKey);
+                    };
+                }
+
                 // Add drop target attributes
                 box.classList.add('drop-target');
-                box.dataset.target = teamKey;
+                box.dataset.target = `Team${i}`; // fixed variable scope issue if any, but teamKey is defined above. Let's use teamKey.
+                // Wait, teamKey is defined inside the loop.
 
+                const teamKey = `Team${i}`; // Re-declaring or reusing? It was declared inside the if(box) block above.
+                // Ah, in the original code:
+                /*
+                const teamKey = `Team${i}`;
+                // ... uses h3 ...
+                */
+               // Let's stick to the structure.
+                
                 if(state.teams[teamKey]) {
                     state.teams[teamKey].forEach((p, idx) => {
                         box.appendChild(createChip(p, teamKey, idx));
@@ -1125,7 +1215,21 @@ https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
             div.className = 'team-box drop-target';
             div.dataset.target = teamKey; // For mobile drag
             div.id = `team-box-${i}`;
-            div.innerHTML = `<h3>Team ${i}</h3>`;
+            
+            // Header with edit functionality
+            const h3 = document.createElement('h3');
+            h3.style.cursor = 'pointer'; // Make it look clickable
+            
+            // Initial render
+            h3.innerHTML = `<span>${getTeamName(teamKey)}</span> <span class="edit-icon">✏️</span>`;
+            
+            // Toggle edit on header click (text or icon)
+            h3.onclick = (e) => { 
+                e.stopPropagation(); // Prevent triggering team selection/move
+                openNameEditModal(teamKey);
+            };
+
+            div.appendChild(h3);
             
             // Tap Interaction
             div.onclick = () => handleAreaClick(teamKey);
@@ -1326,11 +1430,11 @@ https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
                         <span>コート: ${m.court}</span>
                     </div>
                     <div class="match-teams">
-                        <span>${m.t1}</span>
+                        <span>${getTeamName(m.t1)}</span>
                         <span class="match-score">${m.s1 !== null ? m.s1 : '-'} - ${m.s2 !== null ? m.s2 : '-'}</span>
-                        <span>${m.t2}</span>
+                        <span>${getTeamName(m.t2)}</span>
                     </div>
-                    <div class="match-ref">審判/TO: ${m.ref}</div>
+                    <div class="match-ref">審判/TO: ${m.ref.startsWith('Team') ? getTeamName(m.ref) : m.ref}</div>
                 `;
             }
             list.appendChild(div);
@@ -1345,8 +1449,8 @@ https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
         
         currentMatchId = matchId;
         document.getElementById('modal-title').innerText = `試合 No.${match.id} 結果入力`;
-        document.getElementById('modal-team-a-name').innerText = match.t1;
-        document.getElementById('modal-team-b-name').innerText = match.t2;
+        document.getElementById('modal-team-a-name').innerText = getTeamName(match.t1);
+        document.getElementById('modal-team-b-name').innerText = getTeamName(match.t2);
         document.getElementById('score-a').value = match.s1;
         document.getElementById('score-b').value = match.s2;
         
@@ -1430,7 +1534,7 @@ https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${idx + 1}</td>
-                <td style="font-weight:bold;">${t.name}</td>
+                <td style="font-weight:bold;">${getTeamName(t.name)}</td>
                 <td>${t.wins}</td>
                 <td>${t.diff > 0 ? '+'+t.diff : t.diff}</td>
                 <td>${t.points}</td>
