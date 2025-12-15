@@ -475,7 +475,7 @@
         </div>
         
         <div style="text-align:right; margin-top:40px;">
-            <button class="danger" onclick="resetAllData()">データ全消去</button>
+            <button class="danger" onclick="resetAllData()">データ削除メニュー</button>
         </div>
     </section>
 
@@ -528,7 +528,7 @@
     </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
+<!-- Delete Confirmation Modal (Player) -->
 <div id="delete-modal" class="modal-overlay hidden">
     <div class="modal-content" style="text-align:center;">
         <h3>⚠️ 削除確認</h3>
@@ -540,19 +540,34 @@
     </div>
 </div>
 
-<!-- Reset Confirmation Modal -->
+<!-- Reset Confirmation Modal (Menu) -->
 <div id="reset-modal" class="modal-overlay hidden">
     <div class="modal-content" style="text-align:center;">
-        <h3>⚠️ データ全消去</h3>
-        <p>全てのデータを消去しますか？<br><span style="color:var(--danger); font-weight:bold;">復元することはできません。</span></p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
-            <button class="secondary" onclick="closeResetModal()">キャンセル</button>
-            <button class="danger" onclick="executeReset()">全消去する</button>
+        <h3>🗑️ データ削除・リセット</h3>
+        <p style="margin-bottom:20px; font-size:0.9rem; color:#666;">削除する対象を選択してください。<br>※操作は取り消せません。</p>
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button class="secondary" onclick="resetMatchesOnly()">🏆 試合データのみ削除</button>
+            <button class="secondary" onclick="resetTeamsOnly()">👥 チーム編成のみ削除</button>
+            <button class="danger" onclick="executeReset()">⚠️ 全てのデータを初期化</button>
+            <button class="primary" style="margin-top:10px;" onclick="closeResetModal()">キャンセル</button>
         </div>
     </div>
 </div>
 
-<!-- Team Name Edit Modal (NEW) -->
+<!-- Final Reset Confirmation Modal (NEW) -->
+<div id="final-confirm-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align:center;">
+        <h3>⚠️ 最終確認</h3>
+        <p id="final-confirm-msg" style="margin-bottom:20px;"></p>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
+            <button class="secondary" onclick="closeFinalConfirmModal()">キャンセル</button>
+            <button class="danger" onclick="performFinalReset()">実行する</button>
+        </div>
+    </div>
+</div>
+
+<!-- Team Name Edit Modal -->
 <div id="name-edit-modal" class="modal-overlay hidden">
     <div class="modal-content" style="text-align:center;">
         <h3>チーム名変更</h3>
@@ -607,6 +622,9 @@
     // --- Delete Modal Variables ---
     let pendingDelete = null; // { name, from, index }
 
+    // --- Reset Logic Variables ---
+    let pendingResetType = null;
+
     // --- Team Name Edit Variables ---
     let editingTeamKey = null;
 
@@ -655,9 +673,68 @@
         document.getElementById('reset-modal').classList.add('hidden');
     }
 
+    function resetMatchesOnly() {
+        openFinalConfirm('matches');
+    }
+
+    function resetTeamsOnly() {
+        openFinalConfirm('teams');
+    }
+
     function executeReset() {
-        localStorage.removeItem(APP_KEY);
-        location.reload();
+        openFinalConfirm('all');
+    }
+
+    // --- Final Confirm Modal Logic ---
+    function openFinalConfirm(type) {
+        pendingResetType = type;
+        const msgEl = document.getElementById('final-confirm-msg');
+        // close reset menu first
+        closeResetModal();
+        
+        if (type === 'matches') {
+            msgEl.innerHTML = '現在の試合日程と結果をすべて削除しますか？<br>※チーム編成は残ります。';
+        } else if (type === 'teams') {
+            msgEl.innerHTML = 'チーム編成と名簿をすべて削除しますか？<br>※試合データも整合性が取れなくなるため削除されます。';
+        } else if (type === 'all') {
+            msgEl.innerHTML = '本当にすべてのデータを初期化しますか？<br><span style="color:var(--danger); font-weight:bold;">この操作は取り消せません。</span>';
+        }
+        
+        document.getElementById('final-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeFinalConfirmModal() {
+        document.getElementById('final-confirm-modal').classList.add('hidden');
+        pendingResetType = null;
+    }
+
+    function performFinalReset() {
+        if (!pendingResetType) return;
+
+        if (pendingResetType === 'matches') {
+            state.matches = [];
+            saveData();
+            renderMatches();
+            renderStandings();
+            showMatchList();
+        } else if (pendingResetType === 'teams') {
+            state.teams = {};
+            state.pool = [];
+            state.teamNames = {};
+            state.matches = [];
+            saveData();
+            renderTeamBoxes();
+            renderPlayers();
+            renderMatches();
+            renderStandings();
+            showMatchList();
+        } else if (pendingResetType === 'all') {
+            localStorage.removeItem(APP_KEY);
+            location.reload();
+            return; // reload handles everything
+        }
+        
+        closeFinalConfirmModal();
     }
 
     // --- Team Name Edit Logic ---
@@ -971,16 +1048,9 @@ https://youtu.be/RgaQKbbY5QU?si=Q1FjNxEoivU790U8
 
                 // Add drop target attributes
                 box.classList.add('drop-target');
-                box.dataset.target = `Team${i}`; // fixed variable scope issue if any, but teamKey is defined above. Let's use teamKey.
-                // Wait, teamKey is defined inside the loop.
+                box.dataset.target = `Team${i}`; 
 
-                const teamKey = `Team${i}`; // Re-declaring or reusing? It was declared inside the if(box) block above.
-                // Ah, in the original code:
-                /*
                 const teamKey = `Team${i}`;
-                // ... uses h3 ...
-                */
-               // Let's stick to the structure.
                 
                 if(state.teams[teamKey]) {
                     state.teams[teamKey].forEach((p, idx) => {
