@@ -399,7 +399,12 @@
                 <!-- Team boxes rendered here -->
             </div>
         </div>
-        <button class="accent" style="margin-top:20px;" onclick="saveTeamsAndNotify()">この編成で決定（試合表へ連携）</button>
+        
+        <button class="share-btn" onclick="copyTeams()" style="margin-top:20px;">
+            <span style="font-size:1.2rem;">📋</span> チーム分けをテキストコピー
+        </button>
+
+        <button class="accent" style="margin-top:10px;" onclick="saveTeamsAndNotify()">この編成で決定（試合表へ連携）</button>
     </section>
 
     <!-- TAB 3: 試合進行 -->
@@ -528,7 +533,7 @@
     </div>
 </div>
 
-<!-- Delete Confirmation Modal (Player) -->
+<!-- Delete Confirmation Modal -->
 <div id="delete-modal" class="modal-overlay hidden">
     <div class="modal-content" style="text-align:center;">
         <h3>⚠️ 削除確認</h3>
@@ -540,7 +545,7 @@
     </div>
 </div>
 
-<!-- Reset Confirmation Modal (Menu) -->
+<!-- Reset Confirmation Modal -->
 <div id="reset-modal" class="modal-overlay hidden">
     <div class="modal-content" style="text-align:center;">
         <h3>🗑️ データ削除・リセット</h3>
@@ -825,6 +830,46 @@
     function closeImageModal() {
         document.getElementById('image-modal').classList.add('hidden');
     }
+
+    // --- Team Copy Logic (NEW) ---
+    window.copyTeams = () => {
+        let text = "【チーム分け発表】\n\n";
+        const count = parseInt(document.getElementById('team-count').value);
+        
+        for(let i=1; i<=count; i++) {
+            const teamKey = `Team${i}`;
+            const teamName = getTeamName(teamKey);
+            const members = state.teams[teamKey] || [];
+            
+            text += `■${teamName}\n`;
+            if (members.length === 0) {
+                text += "（メンバーなし）\n";
+            } else {
+                members.forEach(m => {
+                    text += `・${m}\n`;
+                });
+            }
+            text += "\n";
+        }
+        
+        // 未所属
+        if (state.pool.length > 0) {
+            text += "■未所属\n";
+            state.pool.forEach(m => {
+                text += `・${m}\n`;
+            });
+        }
+
+        // コピー処理
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        
+        alert("チーム分けをコピーしました！\nLINEなどに貼り付けてください。");
+    };
 
     // --- Tab Navigation ---
     window.switchTab = (tabId, navEl) => {
